@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+/* ============================================================
+   SettleSense — "Working Paper"
+   See direction.md. Every value below is a token; nothing in a
+   component may hand-type a colour, size, or easing.
+
+   The rule the whole system turns on:
+     COLOUR IS RESERVED FOR MONEY THAT NEEDS A HUMAN.
+   A clean reconciliation renders in ink and graphite only.
+   ============================================================ */
+
+@theme {
+  /* -- Light: a working paper on a desk ------------------------ */
+  --color-desk: #e9ece6; /* ground: the ghost of ledger paper */
+  --color-paper: #ffffff; /* the sheet itself */
+  --color-ink: #151c24; /* fountain-pen blue-black */
+  --color-ink-muted: #4a5560;
+  --color-ink-faint: #77828c;
+  --color-rule: #c9d0c8;
+  --color-rule-soft: #dde2db;
+  --color-audit: #a8322a; /* iron-oxide red: exceptions only */
+  --color-audit-wash: #f7ecea;
+  --color-trace: #31597f; /* interactive affordances only */
+  --color-scrim: rgb(21 28 36 / 0.28);
+
+  /* -- Type --------------------------------------------------- */
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* -- Motion: one easing, used everywhere -------------------- */
+  --ease-paper: cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+/* Dark: the same sheet on a light table, not a trading terminal.
+   No pure black; the ground keeps a faint green cast so it reads
+   as paper stock rather than as chrome. */
+:root[data-theme="dark"] {
+  --color-desk: #14171a;
+  --color-paper: #1c2023;
+  --color-ink: #e7eae4;
+  --color-ink-muted: #98a29b;
+  --color-ink-faint: #6f7a73;
+  --color-rule: #333b36;
+  --color-rule-soft: #272d29;
+  --color-audit: #e2695c;
+  --color-audit-wash: #2a1c1a;
+  --color-trace: #86adda;
+  --color-scrim: rgb(0 0 0 / 0.55);
+}
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    margin: 0;
+    background: var(--color-desk);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+  }
+
+  /* Figures are tabular everywhere, without exception. Misaligned
+     decimals read as amateurism to this audience. */
+  .fig,
+  th.fig,
+  td.fig {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums lining-nums;
+    font-feature-settings: "tnum" 1, "lnum" 1;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-trace);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  ::selection {
+    background: var(--color-trace);
+    color: var(--color-paper);
+  }
+}
+
+@layer components {
+  /* A sheet of working paper: crisp corners, low flat shadow.
+     Hairline first — the border does the work, the shadow only
+     lifts it off the desk. */
+  .sheet {
+    background: var(--color-paper);
+    border: 1px solid var(--color-rule);
+    border-radius: 3px;
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+  }
+
+  /* Column heads and eyebrows. Tracked labels stay short — they
+     are system markers, never sentences. */
+  .label {
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--color-ink-faint);
+  }
+
+  /* Working-paper index reference, e.g. B-3/1 */
+  .index-ref {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    color: var(--color-ink-faint);
+  }
+
+  /* The double rule: in accounting this means "footed and
+     verified". Used only under a total that has been proven. */
+  .double-rule {
+    border-top: 1px solid var(--color-ink);
+    border-bottom: 1px solid var(--color-ink);
+    height: 3px;
+  }
+}
+
+/* The one orchestrated moment: totals foot into place and the
+   double rule draws beneath them. Once, on the moment that
+   matters. Everything else is instant. */
+@keyframes foot-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes rule-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+
+.foot-in {
+  animation: foot-in 320ms var(--ease-paper) both;
+}
+
+.rule-draw {
+  transform-origin: left;
+  animation: rule-draw 420ms var(--ease-paper) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foot-in,
+  .rule-draw {
+    animation: none;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

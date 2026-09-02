@@ -3,8 +3,8 @@
 > An evidence-first finance controller that reconciles payment and settlement
 > records, explains every difference, and refuses to force uncertain matches.
 
-**Status:** deterministic engine, HTTP API and AI sidecar complete and measured.
-The React dashboard is designed but not built. **No API key is required to run
+**Status:** deterministic engine, HTTP API, AI sidecar and dashboard complete
+and measured. **No API key is required to run
 anything** — without one, explanations fall back to deterministic templates and
 every figure is identical.
 
@@ -65,6 +65,12 @@ Run the test suite:
 
 ```bash
 pytest -q
+```
+
+Run the dashboard (needs the API running):
+
+```bash
+npm --prefix web install && npm --prefix web run dev
 ```
 
 ---
@@ -191,7 +197,7 @@ numbers.**
 | AI sidecar: explanations, grounding gate, template fallback | Built, tested |
 | AI sidecar: exception clustering | Built, tested |
 | Finance Q&A | Designed, not built |
-| React dashboard | Designed, not built |
+| React dashboard (4 screens, light + dark) | Built |
 
 ---
 
@@ -279,6 +285,37 @@ should be stored with `grounded = false` and routed to review. The implementatio
 downgrades it to a template instead. Simpler and stricter — nothing ungrounded is
 ever published — at the cost of losing the "AI said something odd here" signal,
 which is instead captured in `grounding_failures` on the explain response.
+
+---
+
+## The interface
+
+Design direction in `direction.md` (kept local). The short version:
+
+**Colour is reserved for money that needs a human.** A clean reconciliation
+renders in ink and graphite with no colour at all; every exception introduces
+audit red. The screen gets louder in exact proportion to how much money is
+unexplained. There is no green for "matched" — success is the absence of
+marking, as on a real working paper.
+
+**The signature is the tick column.** Every row carries an audit tick glyph
+recording *how* it was verified, mapping exactly to rules R1-R6. The legend
+above the table is also the filter, because a working paper's tick legend is
+how you navigate it. `Not verified` and `Contested` carry equal visual weight
+to `Traced`.
+
+Other conventions borrowed from the actual artifact: the double rule under a
+footed total, brackets for negatives, an em dash for zero, decimal-aligned
+tabular figures, and index references (`A-1`, `B-3/1`) that make the evidence
+drawer a cross-referenced sub-schedule rather than a modal.
+
+Type is IBM Plex Mono and IBM Plex Sans, both open-licensed. The display face
+is the data face: headings are set in the same tabular mono as the figures,
+because in this product the numbers are the argument.
+
+Light-first, with a dark "light table" theme. One motion moment: totals foot
+into place and the double rule draws beneath them, once, on the run that
+matters. `prefers-reduced-motion` removes it.
 
 ---
 

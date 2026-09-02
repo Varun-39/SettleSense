@@ -19,3 +19,9 @@ CLAUDE.md
 # design docs kept local
 architecture.md
 docs/adr/
+
+# frontend
+web/node_modules/
+web/dist/
+
+direction.md

@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SettleSense</title>
+    <meta
+      name="description"
+      content="Settlement reconciliation with evidence for every conclusion."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      // Set the theme before first paint so the sheet never flashes white.
+      (function () {
+        try {
+          var saved = localStorage.getItem("settlesense-theme");
+          var dark =
+            saved === "dark" ||
+            (!saved && matchMedia("(prefers-color-scheme: dark)").matches);
+          if (dark) document.documentElement.dataset.theme = "dark";
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
