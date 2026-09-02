@@ -1,0 +1,54 @@
+"""FastAPI application.
+
+    uvicorn settlesense.api.main:app --reload
+
+This layer only serves what the deterministic engine already computed. It
+performs no matching and no money arithmetic of its own.
+"""
+from __future__ import annotations
+
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from settlesense import __version__
+from settlesense.ai.client import AIClient
+from settlesense.api.deps import get_settings
+from settlesense.api.routes import ai as ai_routes, results, runs
+from settlesense.recon.engine import ENGINE_VERSION, RULES_VERSION
+
+app = FastAPI(
+    title="SettleSense",
+    version=__version__,
+    description=(
+        "Evidence-first settlement reconciliation. Deterministic code "
+        "calculates and controls; nothing here recomputes finance."
+    ),
+)
+
+# The dashboard is served separately in development.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(runs.router)
+app.include_router(results.router)
+app.include_router(ai_routes.router)
+
+
+@app.get("/health", tags=["meta"])
+def health() -> dict:
+    client = AIClient(get_settings().config().ai)
+    return {
+        "status": "ok",
+        "version": __version__,
+        "engine_version": ENGINE_VERSION,
+        "rules_version": RULES_VERSION,
+        # Reported honestly, and never load-bearing: every total on every
+        # screen is identical whether this is true or false (ADR-001).
+        "ai_enabled": client.available(),
+        "ai_unavailable_reason": client.unavailable_reason(),
+    }

@@ -1,0 +1,3 @@
+settlement_id,payment_id,order_id,gross_amount,fee,tax,net_amount,settled_at,status
+setl_2000,pay_2000,order_2000,1000.00,0.00,0.00,1000.00,2026-08-04T10:00:00+05:30,processed
+setl_2007,pay_2007,order_2007,4000.00,0.00,0.00,4000.00,2026-08-04T17:00:00+05:30,processed

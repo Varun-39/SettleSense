@@ -1,0 +1,29 @@
+# SettleSense engine configuration.
+# ADR-004 / ADR-002: no numeric literals belong in rule code — every tolerance,
+# window, and threshold used by a matching rule must be read from here.
+
+matching:
+  # Rule 3 (amount+time): max allowed |payment.amount - settlement.gross_amount|.
+  tolerance_paise: 100          # ₹1
+
+  # Rule 3 / settlement-window logic: settled_at must fall within
+  # [captured_at, captured_at + settlement_window_days] on the IST calendar.
+  settlement_window_days: 2     # Razorpay default T+2
+
+  # Resolver: two candidates for the same payment, same tier, whose scores
+  # differ by less than this are treated as an unresolved tie -> review.
+  score_epsilon: 0.01
+
+ai:
+  model: claude-opus-5
+  # Explanation is a low-reasoning task on a tight latency budget (see
+  # timeout_seconds); raise only if explanation quality proves insufficient.
+  effort: low
+  max_tokens: 2000
+  timeout_seconds: 8
+  max_retries: 1
+  circuit_breaker_failures: 3
+  prompt_version: "v1"
+
+currency:
+  supported: ["INR"]

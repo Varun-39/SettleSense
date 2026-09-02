@@ -1,0 +1,9 @@
+payment_id,order_id,amount,currency,status,captured_at,customer_id
+pay_2000,order_2000,1000.00,INR,captured,2026-08-03T10:00:00+05:30,cust_1
+pay_2001,order_2001,not-a-number,INR,captured,2026-08-03T11:00:00+05:30,cust_2
+pay_2002,order_2002,1500.00,INR,captured,NOT-A-DATE,cust_3
+,order_2003,2000.00,INR,captured,2026-08-03T13:00:00+05:30,cust_4
+pay_2004,order_2004,2500.005,INR,captured,2026-08-03T14:00:00+05:30,cust_5
+pay_2005,order_2005,3000.00,USD,captured,2026-08-03T15:00:00+05:30,cust_6
+pay_2006,order_2006,3500.00,INR,teleported,2026-08-03T16:00:00+05:30,cust_7
+pay_2007,order_2007,4000.00,INR,captured,2026-08-03T17:00:00+05:30,cust_8

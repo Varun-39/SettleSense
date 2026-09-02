@@ -1,0 +1,17 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+.venv/
+venv/
+
+# Generated at runtime — runs are re-derivable from the source CSVs
+settlesense.db
+
+# local agent config
+.claude/
+
+# agent instruction file
+CLAUDE.md
