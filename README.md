@@ -25,9 +25,9 @@ every conclusion, and routes uncertain cases to a human instead of guessing.
 > **AI explains and prioritizes. Deterministic code calculates and controls.**
 
 No model output can change a rupee figure, a match verdict, or a total. This is
-enforced structurally, not by prompt wording — see
-[ADR-001](docs/adr/ADR-001-deterministic-core-ai-sidecar.md) and the import-graph
-test in `tests/failure/test_failure_cases.py`.
+enforced structurally, not by prompt wording: the deterministic core imports no
+HTTP client at all, verified by the import-graph test in
+`tests/failure/test_failure_cases.py`.
 
 ---
 
@@ -71,9 +71,6 @@ pytest -q
 
 ## Architecture
 
-Full design in [architecture.md](architecture.md); the five decisions with their
-rejected alternatives are in [docs/adr/](docs/adr/).
-
 ```
 ingest → validate → normalize → dedupe → index → rules → resolver → ledger → persist
                                                                         ↓
@@ -81,7 +78,7 @@ ingest → validate → normalize → dedupe → index → rules → resolver �
 ```
 
 The load-bearing idea is **rules propose, the resolver decides**
-([ADR-002](docs/adr/ADR-002-rules-propose-resolver-decides.md)). Matching rules
+(ADR-002). Matching rules
 are pure functions returning `Candidate` objects; one resolver arbitrates between
 them, claiming settlement rows into a ledger where each row can be consumed once.
 When two explanations are equally good, neither wins — the case goes to review
@@ -97,9 +94,9 @@ with both cited.
 | R6 unresolved | — | Resolver fallback: no candidate survived |
 
 Money is integer paise throughout
-([ADR-004](docs/adr/ADR-004-money-integer-paise.md)), storage is SQLite with
+(ADR-004), storage is SQLite with
 results as a first-class table
-([ADR-003](docs/adr/ADR-003-storage-sqlite.md)).
+(ADR-003).
 
 ---
 
@@ -172,7 +169,7 @@ numbers.**
   settlements + Rs 200 amount mismatches.
 - **The 25% exception rate is by design, not a shortfall.** A first-wins cascade
   would report a higher match rate by silently mis-assigning settlements. The
-  trade is explicit in [ADR-002](docs/adr/ADR-002-rules-propose-resolver-decides.md).
+  trade is explicit in ADR-002.
 
 ---
 
@@ -244,7 +241,7 @@ POST /runs/{id}/cluster    group exceptions by root cause
 GET  /runs/{id}/clusters   read stored groups
 ```
 
-Four gates, in order ([ADR-005](docs/adr/ADR-005-grounded-structured-explanations.md)):
+Four gates, in order (ADR-005):
 
 1. **Input gate** — the prompt gets the verdict, the calculation trace, and the
    already-cited rows. Nothing else. `customer_id` is stripped; the model never
@@ -301,8 +298,8 @@ which is instead captured in `grounding_failures` on the explain response.
   failure paths are verified — but explanation *quality* on real model output is
   unmeasured. The grounded-rate metric (`ai_grounded_rate`) exists to measure it
   the moment a key is supplied.
-- **Finance Q&A is not built.** The design (parameterised query tools over the
-  results schema, never free-form SQL) is in architecture.md §7.
+- **Finance Q&A is not built.** The intended design is parameterised query tools over
+  the results schema, never free-form SQL.
 - **The order-id column on settlements is an extension** to the spec's schema.
   Rule 2 is unimplementable without it; files omitting the column still parse and
   R2 simply never fires.

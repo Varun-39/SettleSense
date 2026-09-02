@@ -15,3 +15,7 @@ settlesense.db
 
 # agent instruction file
 CLAUDE.md
+
+# design docs kept local
+architecture.md
+docs/adr/
