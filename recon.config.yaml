@@ -15,13 +15,28 @@ matching:
   score_epsilon: 0.01
 
 ai:
-  model: claude-opus-5
+  # Swapping providers touches ai/client.py only — the grounding gate,
+  # template fallback and cache never learn which model answered.
+  #   gemini    -> GEMINI_API_KEY or GOOGLE_API_KEY   (free tier)
+  #   anthropic -> ANTHROPIC_API_KEY                  (paid)
+  provider: gemini
+  # Free-tier quota is per model. Verified working and fast (~1s/call);
+  # switch if quota is exhausted -- gemini-3.8-flash also works.
+  model: gemini-3.5-flash
   # Explanation is a low-reasoning task on a tight latency budget (see
   # timeout_seconds); raise only if explanation quality proves insufficient.
   effort: low
   max_tokens: 2000
-  timeout_seconds: 8
-  max_retries: 1
+  # ADR-005 specifies 8s; Gemini enforces a 10s floor and the client clamps
+  # to it, so this is set honestly rather than silently overridden.
+  timeout_seconds: 12
+  max_retries: 3
+  # A rate limit needs backing off, not retrying instantly.
+  retry_backoff_seconds: 2
+  # Minimum gap between calls. Free-tier Gemini quota is small and per-minute;
+  # pacing turns a run that dies after ~5 calls into one that completes.
+  # Set to 0 on a paid key.
+  min_interval_seconds: 4
   circuit_breaker_failures: 3
   prompt_version: "v1"
 

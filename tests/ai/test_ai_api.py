@@ -36,15 +36,15 @@ def run_id(client) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _no_key(monkeypatch):
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+def _no_key(no_ai_keys):
+    """Every test in this module runs as a judge's machine would: no key."""
 
 
 def test_health_reports_ai_unavailable_with_a_reason(client) -> None:
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["ai_enabled"] is False
-    assert "ANTHROPIC_API_KEY" in body["ai_unavailable_reason"]
+    assert "is not set" in body["ai_unavailable_reason"]
 
 
 def test_explain_succeeds_without_a_key(client, run_id) -> None:

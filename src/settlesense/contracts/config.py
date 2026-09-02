@@ -16,11 +16,14 @@ class MatchingConfig(BaseModel):
 
 
 class AIConfig(BaseModel):
+    provider: str = "gemini"   # "gemini" | "anthropic"
     model: str
-    effort: str = "low"
+    effort: str = "low"        # anthropic only; gemini uses thinking_budget=0
     max_tokens: int
     timeout_seconds: int
     max_retries: int
+    retry_backoff_seconds: float = 2.0
+    min_interval_seconds: float = 0.0
     circuit_breaker_failures: int
     prompt_version: str
 

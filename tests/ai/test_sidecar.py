@@ -112,17 +112,27 @@ def persisted_run(tmp_path):
 # -- the failure gate -------------------------------------------------------
 
 
-def test_no_api_key_means_unavailable_not_an_exception(ai_config, monkeypatch) -> None:
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+def test_no_api_key_means_unavailable_not_an_exception(
+    ai_config, no_ai_keys
+) -> None:
     client = AIClient(ai_config)
     assert client.available() is False
-    assert "ANTHROPIC_API_KEY" in client.unavailable_reason()
+    assert "is not set" in client.unavailable_reason()
     assert client.parse("sys", "user", ExplanationOut) is None
+
+
+@pytest.mark.parametrize("provider", ["gemini", "anthropic"])
+def test_each_provider_names_its_own_key_variable(
+    ai_config, no_ai_keys, provider
+) -> None:
+    reason = AIClient(ai_config.model_copy(update={"provider": provider})).unavailable_reason()
+    expected = "GEMINI_API_KEY" if provider == "gemini" else "ANTHROPIC_API_KEY"
+    assert expected in reason
 
 
 def test_empty_api_key_is_treated_as_missing(ai_config, monkeypatch) -> None:
     """An empty env var must not become an auth error later."""
-    monkeypatch.setenv("ANTHROPIC_API_KEY", "   ")
+    monkeypatch.setenv("GEMINI_API_KEY", "   ")
     client = AIClient(ai_config)
     assert client.available() is False
     assert "not set" in client.unavailable_reason()
@@ -201,9 +211,8 @@ def test_template_for_a_matched_case_recommends_no_action() -> None:
 
 
 def test_ai_unavailable_produces_templates_for_every_exception(
-    persisted_run, ai_config, monkeypatch
+    persisted_run, ai_config, no_ai_keys
 ) -> None:
-    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     repo, run_id = persisted_run
 
     report = explain_run(run_id, repo, AIClient(ai_config))

@@ -61,8 +61,12 @@ class ExplainReport:
         return 1.0 if attempted == 0 else self.from_ai / attempted
 
 
-def _cache_key(prompt_version: str, trace_hash: str, row_hashes: tuple[str, ...]) -> str:
-    joined = "|".join([prompt_version, trace_hash, *row_hashes])
+def _cache_key(
+    prompt_version: str, model: str, trace_hash: str, row_hashes: tuple[str, ...]
+) -> str:
+    """The model is part of the key: switching model or provider must produce
+    fresh answers, not silently replay the previous model's."""
+    joined = "|".join([prompt_version, model, trace_hash, *row_hashes])
     return hashlib.sha256(joined.encode("utf-8")).hexdigest()
 
 
@@ -78,7 +82,10 @@ def explain_result(
 
     context = build_case(result, detail["calc_steps"], evidence)
     key = _cache_key(
-        client.config.prompt_version, context.trace_hash, context.row_hashes
+        client.config.prompt_version,
+        client.config.model,
+        context.trace_hash,
+        context.row_hashes,
     )
 
     cached = repo.get_cached_explanation(key)
