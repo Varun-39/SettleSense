@@ -113,3 +113,25 @@ def test_duplicate_id_fixture_reports_neither_row_as_settled(client) -> None:
     assert len(duplicates) == 2
     assert len({r["reconciliation_id"] for r in duplicates}) == 2
     assert {r["expected_net"]["paise"] for r in duplicates} == {100_000, 200_000}
+
+
+def test_control_total_proof_balances(client) -> None:
+    """Every rupee collected has somewhere to go, over HTTP."""
+    run_id = client.post("/runs", data={}).json()["run_id"]
+    proof = client.get(f"/runs/{run_id}/proof").json()
+
+    assert proof["balances"] is True
+    assert proof["difference"]["paise"] == 0
+
+    parts = sum(
+        proof[k]["paise"]
+        for k in ("settled", "fees", "tax", "refunds", "unexplained")
+    )
+    assert parts == proof["gross"]["paise"], "the column does not add up"
+
+
+def test_proof_holds_for_the_failure_fixtures(client) -> None:
+    for name in ("ambiguous", "duplicate-id", "malformed"):
+        run_id = client.post("/runs", data={"fixture": name}).json()["run_id"]
+        proof = client.get(f"/runs/{run_id}/proof").json()
+        assert proof["balances"] is True, f"{name} does not balance"

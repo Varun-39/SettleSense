@@ -1,6 +1,7 @@
 import { api, useAsync, type Summary } from "../lib/api";
 import { amount } from "../lib/format";
 import { DoubleRule, Sheet } from "../components/Sheet";
+import { ControlTotalProof } from "../components/ControlTotalProof";
 
 /**
  * Screen A — the six numbers a controller checks first.
@@ -111,6 +112,8 @@ export function ControlTotals({
           amount. Nothing is excluded to make the figure smaller.
         </p>
       </div>
+
+      <ControlTotalProof runId={runId} />
     </Sheet>
   );
 }

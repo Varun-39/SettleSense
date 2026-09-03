@@ -23,6 +23,7 @@ from settlesense.api.schemas import (
     money,
 )
 from settlesense.evaluate.evaluator import evaluate, load_ground_truth
+from settlesense.evaluate.proof import prove
 from settlesense.ingest.batch import load_batch
 from settlesense.ledger.crosscheck import crosscheck
 from settlesense.recon.engine import run as run_engine
@@ -67,6 +68,9 @@ def _execute_run(data_dir: Path, settings: Settings, repo: Repository) -> RunCre
         findings=findings,
         metrics=metrics,
     )
+    # A checksum over the run: gross must decompose exactly into settled cash,
+    # fees, tax, refunds and what remains unexplained.
+    repo.save_proof(output.run_id, prove(output))
     return RunCreated(
         run_id=output.run_id,
         batch_id=output.batch_id,
@@ -151,6 +155,31 @@ def run_summary(run_id: str, repo: Repository = Depends(get_repository)) -> RunS
         settled_net=money(s["settled_net_paise"]),
         unexplained=money(s["unexplained_paise"]),
     )
+
+
+@router.get("/{run_id}/proof")
+def control_total_proof(
+    run_id: str, repo: Repository = Depends(get_repository)
+) -> dict:
+    """Does every rupee collected have somewhere to go?
+
+    `difference` is zero when gross decomposes exactly into settled cash,
+    provider fees, tax, refunds and the unexplained remainder. A non-zero
+    difference means a figure on some screen is wrong.
+    """
+    _require_run(repo, run_id)
+    metrics = repo.metrics_for(run_id)
+    keys = ("gross", "settled", "fees", "tax", "refunds", "unexplained", "difference")
+    if not all(f"proof_{k}" in metrics for k in keys):
+        raise HTTPException(404, "no control-total proof stored for this run")
+
+    figures = {k: int(metrics[f"proof_{k}"]) for k in keys}
+    figures["accounted"] = figures["gross"] - figures["difference"]
+    return {
+        "run_id": run_id,
+        "balances": figures["difference"] == 0,
+        **{k: money(v) for k, v in figures.items()},
+    }
 
 
 @router.get("/{run_id}/exceptions", response_model=list[ExceptionGroup])

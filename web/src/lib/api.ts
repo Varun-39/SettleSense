@@ -101,6 +101,19 @@ export type ExceptionGroup = {
   unexplained: Money;
 };
 
+export type Proof = {
+  run_id: string;
+  balances: boolean;
+  gross: Money;
+  settled: Money;
+  fees: Money;
+  tax: Money;
+  refunds: Money;
+  unexplained: Money;
+  accounted: Money;
+  difference: Money;
+};
+
 export type Health = {
   status: string;
   version: string;
@@ -182,6 +195,7 @@ export const api = {
   listRuns: () => request<{ run_id: string; batch_id: string }[]>("/runs"),
   summary: (runId: string) => request<Summary>(`/runs/${runId}/summary`),
   metrics: (runId: string) => request<Record<string, number>>(`/runs/${runId}/metrics`),
+  proof: (runId: string) => request<Proof>(`/runs/${runId}/proof`),
   exceptions: (runId: string) =>
     request<ExceptionGroup[]>(`/runs/${runId}/exceptions`),
   ledgerFindings: (runId: string) =>

@@ -63,6 +63,20 @@ class Repository:
         ).fetchall()
         return {r["name"]: r["value"] for r in rows}
 
+    def save_proof(self, run_id: str, proof) -> None:
+        """The control-total decomposition, stored as metrics so it travels
+        with the run and can be checked later."""
+        for name, value in (
+            ("proof_gross", proof.gross),
+            ("proof_settled", proof.settled),
+            ("proof_fees", proof.fees),
+            ("proof_tax", proof.tax),
+            ("proof_refunds", proof.refunds),
+            ("proof_unexplained", proof.unexplained),
+            ("proof_difference", proof.difference),
+        ):
+            self.save_metric(run_id, name, int(value))
+
     def get_run(self, run_id: str) -> sqlite3.Row | None:
         return self._conn.execute(
             "SELECT * FROM runs WHERE run_id = ?", (run_id,)
