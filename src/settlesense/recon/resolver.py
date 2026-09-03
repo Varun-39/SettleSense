@@ -125,6 +125,14 @@ def detect_ambiguity(
     return ambiguity
 
 
+def _reconciliation_id(run_id: str, payment: Payment, disambiguate: bool) -> str:
+    """`payment_id` is not guaranteed unique within a batch, so it cannot be
+    the whole identity. Conflicting rows get a content suffix; everything else
+    keeps the readable form."""
+    base = f"{run_id}:{payment.payment_id}"
+    return f"{base}#{payment.row_hash[:8]}" if disambiguate else base
+
+
 def _result(
     run_id: str,
     payment: Payment,
@@ -133,7 +141,9 @@ def _result(
     reason: ReasonCode | None,
     claims: tuple[SettlementClaim, ...] = (),
     extra_evidence: tuple[RowRef, ...] = (),
+    disambiguate: bool = False,
 ) -> ReconciliationResult:
+    recon_id = _reconciliation_id(run_id, payment, disambiguate)
     if candidate is None:
         # `difference_amount` and `pending_amount` describe DIFFERENT money and
         # must never both carry the same rupees: difference is a discrepancy
@@ -141,7 +151,7 @@ def _result(
         # Unexplained totals sum the two, so double-filling them double-counts.
         # Nothing settled here, so the whole amount is pending, not a difference.
         return ReconciliationResult(
-            reconciliation_id=f"{run_id}:{payment.payment_id}",
+            reconciliation_id=recon_id,
             run_id=run_id,
             payment_id=payment.payment_id,
             match_type=MatchType.UNRESOLVED,
@@ -167,7 +177,7 @@ def _result(
         # they are what the reviewer has to adjudicate — but the figures
         # revert to "nothing settled, everything pending".
         return ReconciliationResult(
-            reconciliation_id=f"{run_id}:{payment.payment_id}",
+            reconciliation_id=recon_id,
             run_id=run_id,
             payment_id=payment.payment_id,
             match_type=candidate.match_type,
@@ -185,7 +195,7 @@ def _result(
         )
 
     return ReconciliationResult(
-        reconciliation_id=f"{run_id}:{payment.payment_id}",
+        reconciliation_id=recon_id,
         run_id=run_id,
         payment_id=payment.payment_id,
         match_type=candidate.match_type,
@@ -211,12 +221,27 @@ def resolve(
 ) -> list[ReconciliationResult]:
     epsilon = ctx.config.score_epsilon
     ledger = ClaimLedger(ctx)
+
+    # `payment_id` is not unique by construction — dedup collapses identical
+    # rows, but two rows sharing an id and differing in content survive it.
+    # Those are conflicting source records: neither may claim a settlement
+    # (both would report the same money as theirs), and both must survive to
+    # be looked at rather than one silently overwriting the other.
+    rows_by_id: dict[str, list[Payment]] = {}
+    for p in payments:
+        rows_by_id.setdefault(p.payment_id, []).append(p)
+    conflicted = {pid for pid, rows in rows_by_id.items() if len(rows) > 1}
+
+    if conflicted:
+        candidates = [c for c in candidates if c.payment_id not in conflicted]
+
     ambiguity = detect_ambiguity(candidates, epsilon)
 
     by_payment: dict[str, list[Candidate]] = {}
     for c in candidates:
         by_payment.setdefault(c.payment_id, []).append(c)
 
+    # Keyed by row_hash: unique even when payment_id is not.
     results: dict[str, ReconciliationResult] = {}
 
     # Ambiguous payments never claim: neither explanation gets to win.
@@ -229,7 +254,7 @@ def resolve(
                     if ref not in merged_evidence:
                         merged_evidence += (ref,)
             best = sorted(contenders, key=_rank)[0]
-            results[payment.payment_id] = _result(
+            results[payment.row_hash] = _result(
                 run_id,
                 payment,
                 best,
@@ -246,7 +271,8 @@ def resolve(
         (c for c in candidates if c.payment_id not in ambiguity.payment_ids), key=_rank
     )
     for candidate in ordered:
-        if candidate.payment_id in results:
+        payment = next(p for p in payments if p.payment_id == candidate.payment_id)
+        if payment.row_hash in results:
             continue  # this payment already resolved
         if not ledger.can_claim(candidate.settlement_ids):
             continue  # demoted: its settlements went to stronger evidence
@@ -256,8 +282,7 @@ def resolve(
         status = ResultStatus.MATCHED if settled_clean else ResultStatus.REVIEW
         reason = candidate.reason_hint if not settled_clean else None
 
-        payment = next(p for p in payments if p.payment_id == candidate.payment_id)
-        results[candidate.payment_id] = _result(
+        results[payment.row_hash] = _result(
             run_id,
             payment,
             candidate,
@@ -266,9 +291,26 @@ def resolve(
             claims=ledger.claims_for(candidate.settlement_ids),
         )
 
+    # Conflicting source records: preserved, cited against each other, and
+    # never matched. Reporting either as settled would double-count the one
+    # settlement between them.
+    for payment_id in conflicted:
+        peers = rows_by_id[payment_id]
+        refs = tuple(payment_ref(p) for p in peers)
+        for payment in peers:
+            results[payment.row_hash] = _result(
+                run_id,
+                payment,
+                None,
+                ResultStatus.UNRESOLVED,
+                ReasonCode.DUPLICATE_RECORD,
+                extra_evidence=tuple(r for r in refs if r != payment_ref(payment)),
+                disambiguate=True,
+            )
+
     # R6 — no candidate survived. Never force a match.
     for payment in payments:
-        if payment.payment_id in results:
+        if payment.row_hash in results:
             continue
         had_candidates = bool(by_payment.get(payment.payment_id))
         reason = (
@@ -276,8 +318,8 @@ def resolve(
             if had_candidates
             else ReasonCode.MISSING_SETTLEMENT
         )
-        results[payment.payment_id] = _result(
+        results[payment.row_hash] = _result(
             run_id, payment, None, ResultStatus.UNRESOLVED, reason
         )
 
-    return [results[p.payment_id] for p in payments]
+    return [results[p.row_hash] for p in payments]

@@ -18,9 +18,11 @@ import { BulkSignOff } from "../components/BulkSignOff";
  * at it: sort by what is worst, find one payment, age an exception, sign off
  * a whole group, and see what is left.
  */
-type SortKey = "payment" | "variance" | "outstanding" | "age";
+type SortKey = "payment" | "variance" | "unexplained" | "age";
 
-const OUTSTANDING = (r: ResultRow) =>
+/** The same figure screen A and the exceptions sheet both call "unexplained".
+ *  One concept, one word, across every screen. */
+const UNEXPLAINED = (r: ResultRow) =>
   Math.abs(r.difference.paise ?? 0) + (r.pending_amount.paise ?? 0);
 
 export function Results({ runId }: { runId: string }) {
@@ -37,6 +39,10 @@ export function Results({ runId }: { runId: string }) {
   );
 
   const rows = data?.results ?? [];
+  // The API caps a page at 1000. Say so rather than reporting the page size
+  // as if it were the whole schedule.
+  const total = data?.total ?? rows.length;
+  const truncated = total > rows.length;
 
   const counts = useMemo(() => {
     const out: Partial<Record<TickKind, number>> = {};
@@ -54,14 +60,14 @@ export function Results({ runId }: { runId: string }) {
     if (needle) out = out.filter((r) => r.payment_id.toLowerCase().includes(needle));
     const sorted = [...out];
     switch (sort) {
-      // Worst first: the money a controller has to account for.
+      // Descending: the money a controller has to account for, first.
       case "variance":
         sorted.sort(
           (a, b) => Math.abs(b.difference.paise ?? 0) - Math.abs(a.difference.paise ?? 0),
         );
         break;
-      case "outstanding":
-        sorted.sort((a, b) => OUTSTANDING(b) - OUTSTANDING(a));
+      case "unexplained":
+        sorted.sort((a, b) => UNEXPLAINED(b) - UNEXPLAINED(a));
         break;
       case "age":
         sorted.sort(
@@ -98,7 +104,12 @@ export function Results({ runId }: { runId: string }) {
             "Reading…"
           ) : (
             <>
-              {visible.length} of {rows.length} rows
+              {visible.length} of {total} rows
+              {truncated ? (
+                <span className="text-audit">
+                  {" "}· showing the first {rows.length}
+                </span>
+              ) : null}
               {exceptions.length > 0 ? (
                 <>
                   {" · "}
@@ -130,11 +141,11 @@ export function Results({ runId }: { runId: string }) {
             className="fig w-44 rounded-[2px] border border-rule bg-paper px-2 py-1 text-[12px] text-ink placeholder:text-ink-faint"
           />
           <div className="flex items-center gap-1">
-            <span className="label mr-1">Worst first</span>
+            <span className="label mr-1">Sort by</span>
             {(
               [
-                ["payment", "Id"],
-                ["outstanding", "Outstanding"],
+                ["payment", "Payment"],
+                ["unexplained", "Unexplained"],
                 ["variance", "Variance"],
                 ["age", "Age"],
               ] as [SortKey, string][]

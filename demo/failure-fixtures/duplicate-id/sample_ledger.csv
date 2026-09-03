@@ -1,0 +1,3 @@
+ledger_entry_id,order_id,debit,credit,posted_at,description
+led_4000,order_4000,0.00,1000.00,2026-08-12T10:00:00+05:30,Sale order_4000
+led_4001,order_4001,0.00,1750.00,2026-08-12T11:00:00+05:30,Sale order_4001

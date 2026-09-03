@@ -1,0 +1,3 @@
+payment_id,expected_category,expected_status,expected_settlement_ids
+pay_4000,duplicate_record,unresolved,
+pay_4001,fee_difference,matched,setl_4001

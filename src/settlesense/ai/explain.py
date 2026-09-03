@@ -167,5 +167,8 @@ def explain_run(
         repo.save_metric(run_id, "template_explanations", report.from_template)
         repo.save_metric(run_id, "grounding_rejections", report.rejected_by_grounding)
         repo.save_metric(run_id, "evidence_coverage", report.evidence_coverage)
+        # Of the answers the model actually produced, how many survived the
+        # grounding gate. Unlike evidence coverage this one can fall.
+        repo.save_metric(run_id, "ai_grounded_rate", report.ai_grounded_rate)
 
     return report

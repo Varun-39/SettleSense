@@ -7,6 +7,7 @@ import { DoubleRule, Sheet } from "../components/Sheet";
  * that reports only its wins is the thing finance teams already distrust.
  */
 const PERCENT = new Set([
+  "ai_grounded_rate",
   "match_rate",
   "match_precision",
   "exception_recall",
@@ -33,6 +34,7 @@ const LABELS: Record<string, string> = {
   ai_explanations: "AI explanations",
   template_explanations: "Template explanations",
   grounding_rejections: "Rejected by grounding gate",
+  ai_grounded_rate: "Model answers that were grounded",
 };
 
 const ORDER = [
@@ -51,6 +53,7 @@ const ORDER = [
   "ai_explanations",
   "template_explanations",
   "grounding_rejections",
+  "ai_grounded_rate",
   "evidence_coverage",
 ];
 

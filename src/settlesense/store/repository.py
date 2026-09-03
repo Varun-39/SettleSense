@@ -170,8 +170,22 @@ class Repository:
     def result_detail(self, reconciliation_id: str) -> dict | None:
         """The evidence drawer: the result, its arithmetic, and every source
         row it cites — resolved to the actual stored row, not just an id."""
+        # captured_at travels with the row so the drawer can age the case and
+        # put a date in a copied note; without it "Copy as note" silently omits
+        # the capture date.
         result = self._conn.execute(
-            "SELECT * FROM reconciliation_results WHERE reconciliation_id = ?",
+            """SELECT r.*,
+                      (SELECT COUNT(*) FROM review_actions a
+                        WHERE a.reconciliation_id = r.reconciliation_id)
+                          AS review_count,
+                      (SELECT json_extract(s.raw_json, '$.captured_at')
+                         FROM source_rows s
+                        WHERE s.run_id = r.run_id
+                          AND s.table_name = 'payments'
+                          AND s.natural_id = r.payment_id)
+                          AS captured_at
+                 FROM reconciliation_results r
+                WHERE r.reconciliation_id = ?""",
             (reconciliation_id,),
         ).fetchone()
         if result is None:

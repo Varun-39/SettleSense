@@ -1,0 +1,4 @@
+payment_id,order_id,amount,currency,status,captured_at,customer_id
+pay_4000,order_4000,1000.00,INR,captured,2026-08-12T10:00:00+05:30,cust_21
+pay_4000,order_4000,2000.00,INR,captured,2026-08-12T10:00:00+05:30,cust_21
+pay_4001,order_4001,1750.00,INR,captured,2026-08-12T11:00:00+05:30,cust_22

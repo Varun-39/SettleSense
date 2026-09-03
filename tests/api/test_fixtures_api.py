@@ -32,7 +32,7 @@ def client(tmp_path_factory):
 def test_listing_reports_installed_fixtures(client) -> None:
     body = client.get("/fixtures").json()
     names = {f["name"] for f in body}
-    assert {"benchmark", "malformed", "ambiguous"} <= names
+    assert {"benchmark", "malformed", "ambiguous", "duplicate-id"} <= names
     for f in body:
         assert f["label"] and f["description"]
         assert f["available"] is True, f"{f['name']} is not installed"
@@ -94,3 +94,22 @@ def test_reconciling_the_same_fixture_twice_reuses_the_run(client) -> None:
     second = client.post("/runs", data={"fixture": "ambiguous"}).json()
     assert second["run_id"] == first["run_id"]
     assert second["already_existed"] is True
+
+
+def test_duplicate_id_fixture_reports_neither_row_as_settled(client) -> None:
+    """The same payment exported twice must not be counted as two payments."""
+    body = client.post("/runs", data={"fixture": "duplicate-id"}).json()
+    run_id = body["run_id"]
+
+    summary = client.get(f"/runs/{run_id}/summary").json()
+    assert summary["records_processed"] == 3
+    assert summary["unresolved"] == 2
+    assert summary["matched"] == 1
+    # Only the clean payment's settlement is counted.
+    assert summary["settled_net"]["paise"] == 170_870
+
+    page = client.get(f"/runs/{run_id}/results").json()
+    duplicates = [r for r in page["results"] if r["reason_code"] == "duplicate_record"]
+    assert len(duplicates) == 2
+    assert len({r["reconciliation_id"] for r in duplicates}) == 2
+    assert {r["expected_net"]["paise"] for r in duplicates} == {100_000, 200_000}

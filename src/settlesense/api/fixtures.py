@@ -57,6 +57,16 @@ FIXTURES: dict[str, Fixture] = {
             ),
             path=ROOT / "demo" / "failure-fixtures" / "ambiguous",
         ),
+        Fixture(
+            name="duplicate-id",
+            label="Duplicate payment id",
+            description=(
+                "The same payment id exported twice with different amounts. "
+                "Neither row is matched and neither claims the settlement, so "
+                "one export cannot be counted as two payments."
+            ),
+            path=ROOT / "demo" / "failure-fixtures" / "duplicate-id",
+        ),
     )
 }
 
