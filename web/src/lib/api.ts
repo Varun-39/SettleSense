@@ -37,6 +37,9 @@ export type Summary = {
 export type ResultRow = {
   reconciliation_id: string;
   payment_id: string;
+  review_count: number;
+  last_action: string | null;
+  captured_at: string | null;
   match_type: string;
   match_score: number;
   status: "matched" | "review" | "unresolved";
@@ -205,6 +208,23 @@ export const api = {
   ) =>
     request<Record<string, unknown>>(
       `/runs/${runId}/results/${encodeURIComponent(reconciliationId)}/review`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    ),
+  reviewBatch: (
+    runId: string,
+    body: {
+      reconciliation_ids: string[];
+      action: string;
+      note?: string;
+      actor?: string;
+    },
+  ) =>
+    request<{ requested: number; recorded: number }>(
+      `/runs/${runId}/results/review-batch`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },

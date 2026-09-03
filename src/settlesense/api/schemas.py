@@ -45,6 +45,11 @@ class RunSummary(BaseModel):
 class ResultRow(BaseModel):
     reconciliation_id: str
     payment_id: str
+    # Review state and capture time travel with the row so the table can show
+    # triage progress and age an exception without a request per row.
+    review_count: int = 0
+    last_action: str | None = None
+    captured_at: str | None = None
     match_type: str
     match_score: float
     status: str
@@ -101,10 +106,17 @@ class ReviewRequest(BaseModel):
     actor: str = "reviewer"
 
 
+class BatchReviewRequest(ReviewRequest):
+    reconciliation_ids: list[str]
+
+
 def to_result_row(row: dict) -> ResultRow:
     return ResultRow(
         reconciliation_id=row["reconciliation_id"],
         payment_id=row["payment_id"],
+        review_count=row["review_count"] if "review_count" in row.keys() else 0,
+        last_action=row["last_action"] if "last_action" in row.keys() else None,
+        captured_at=row["captured_at"] if "captured_at" in row.keys() else None,
         match_type=row["match_type"],
         match_score=row["match_score"],
         status=row["status"],

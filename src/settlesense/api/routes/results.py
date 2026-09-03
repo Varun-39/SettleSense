@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from settlesense.api.deps import get_repository
 from settlesense.api.schemas import (
+    BatchReviewRequest,
     CalcStepOut,
     EvidenceOut,
     ResultDetail,
@@ -20,6 +21,39 @@ from settlesense.api.schemas import (
 from settlesense.store.repository import Repository
 
 router = APIRouter(prefix="/runs/{run_id}/results", tags=["results"])
+
+
+@router.post("/review-batch", status_code=201)
+def record_batch_review(
+    run_id: str,
+    body: BatchReviewRequest,
+    repo: Repository = Depends(get_repository),
+) -> dict:
+    """Sign off a group of cases in one action.
+
+    Eighteen payments waiting on the same provider batch is one decision, not
+    eighteen. Ids that do not belong to this run are ignored rather than
+    failing the whole request, so a stale selection cannot lose the reviewer's
+    work — the count that came back says what was actually recorded.
+    """
+    if repo.get_run(run_id) is None:
+        raise HTTPException(404, f"unknown run: {run_id}")
+    if not body.reconciliation_ids:
+        raise HTTPException(400, "no cases selected")
+
+    rows, _ = repo.query_results(run_id, limit=1_000_000)
+    in_run = {r["reconciliation_id"] for r in rows}
+    targets = [rid for rid in body.reconciliation_ids if rid in in_run]
+
+    recorded = repo.save_review_actions(
+        targets, actor=body.actor, action=body.action, note=body.note
+    )
+    return {
+        "requested": len(body.reconciliation_ids),
+        "recorded": recorded,
+        "action": body.action,
+        "note": "Engine verdicts are unchanged; the sign-offs sit beside them.",
+    }
 
 
 @router.get("", response_model=ResultPage)

@@ -120,28 +120,49 @@ class Repository:
         limit: int = 100,
         offset: int = 0,
     ) -> tuple[list[sqlite3.Row], int]:
-        clauses = ["run_id = ?"]
+        clauses = ["r.run_id = ?"]
         params: list = [run_id]
         if status:
-            clauses.append("status = ?")
+            clauses.append("r.status = ?")
             params.append(status)
         if match_type:
-            clauses.append("match_type = ?")
+            clauses.append("r.match_type = ?")
             params.append(match_type)
         if reason_code:
-            clauses.append("reason_code = ?")
+            clauses.append("r.reason_code = ?")
             params.append(reason_code)
         if min_difference is not None:
-            clauses.append("ABS(difference_amount) >= ?")
+            clauses.append("ABS(r.difference_amount) >= ?")
             params.append(min_difference)
         where = " AND ".join(clauses)
 
         total = self._conn.execute(
-            f"SELECT COUNT(*) AS n FROM reconciliation_results WHERE {where}", params
+            f"SELECT COUNT(*) AS n FROM reconciliation_results r WHERE {where}",
+            params,
         ).fetchone()["n"]
+
+        # Two things the table needs that don't live on the result row: how far
+        # a reviewer has got with this case, and when the payment was captured
+        # (so the UI can age an exception). Both are read here rather than by a
+        # request per row.
         rows = self._conn.execute(
-            f"""SELECT * FROM reconciliation_results WHERE {where}
-                ORDER BY payment_id LIMIT ? OFFSET ?""",
+            f"""SELECT r.*,
+                       (SELECT COUNT(*) FROM review_actions a
+                         WHERE a.reconciliation_id = r.reconciliation_id)
+                           AS review_count,
+                       (SELECT a.action FROM review_actions a
+                         WHERE a.reconciliation_id = r.reconciliation_id
+                         ORDER BY a.created_at DESC, a.id DESC LIMIT 1)
+                           AS last_action,
+                       (SELECT json_extract(s.raw_json, '$.captured_at')
+                          FROM source_rows s
+                         WHERE s.run_id = r.run_id
+                           AND s.table_name = 'payments'
+                           AND s.natural_id = r.payment_id)
+                           AS captured_at
+                  FROM reconciliation_results r
+                 WHERE {where}
+                 ORDER BY r.payment_id LIMIT ? OFFSET ?""",
             [*params, limit, offset],
         ).fetchall()
         return rows, total
@@ -353,6 +374,36 @@ class Repository:
             (run_id, name, float(value), datetime.now(timezone.utc).isoformat()),
         )
         self._conn.commit()
+
+    def save_review_actions(
+        self,
+        reconciliation_ids: list[str],
+        actor: str,
+        action: str,
+        note: str | None,
+    ) -> int:
+        """Sign off a group in one transaction. Eighteen payments waiting on
+        the same provider batch is one decision, not eighteen."""
+        now = datetime.now(timezone.utc).isoformat()
+        known = {
+            row["reconciliation_id"]
+            for row in self._conn.execute(
+                "SELECT reconciliation_id FROM reconciliation_results"
+            ).fetchall()
+        }
+        rows = [
+            (rid, actor, action, note, now)
+            for rid in reconciliation_ids
+            if rid in known
+        ]
+        self._conn.executemany(
+            """INSERT INTO review_actions
+               (reconciliation_id, actor, action, note, created_at)
+               VALUES (?, ?, ?, ?, ?)""",
+            rows,
+        )
+        self._conn.commit()
+        return len(rows)
 
     def save_review_action(
         self, reconciliation_id: str, actor: str, action: str, note: str | None

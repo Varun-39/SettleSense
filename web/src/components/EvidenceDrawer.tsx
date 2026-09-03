@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, useAsync, type ResultDetail } from "../lib/api";
-import { ACTION_LABELS, amount, reason } from "../lib/format";
+import { ACTION_LABELS, amount, asNote, reason } from "../lib/format";
 import { Tick, tickFor } from "./Tick";
 import { SignOff, type Recorded } from "./SignOff";
 
@@ -73,6 +73,7 @@ function Body({
 }) {
   const { result } = data;
   const exception = result.status !== "matched";
+  const [copied, setCopied] = useState(false);
   const [signOffs, setSignOffs] = useState<Recorded[]>(
     data.review_actions.map((a) => ({
       actor: a.actor,
@@ -98,6 +99,23 @@ function Body({
           </div>
           <div className="flex items-center gap-3">
             <span className="index-ref">B-3/1</span>
+            {/* Analysts spend the day explaining these cases to other people.
+                Retyping figures into an email is where transcription errors
+                come from. */}
+            <button
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(asNote(result));
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1600);
+                } catch {
+                  setCopied(false);
+                }
+              }}
+              className="text-[12px] text-trace underline underline-offset-2"
+            >
+              {copied ? "Copied" : "Copy as note"}
+            </button>
             <button
               onClick={onClose}
               className="text-[12px] text-trace underline underline-offset-2"
