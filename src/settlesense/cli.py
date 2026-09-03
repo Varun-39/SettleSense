@@ -66,6 +66,61 @@ def _exception_rows(output: RunOutput) -> list[tuple[str, str]]:
     return [(k, str(v)) for k, v in sorted(counts.items())]
 
 
+def _convert(args) -> int:
+    """Razorpay exports in, a canonical four-file batch out."""
+    import shutil
+
+    from settlesense.ingest import razorpay as rz
+
+    out_dir = Path(args.out)
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    recon = rz.convert_recon(rz.read_csv(args.recon), unit=args.unit)
+    payments = rz.convert_payments(rz.read_csv(args.payments), unit=args.unit)
+
+    rz.write_csv(out_dir / "sample_payments.csv", payments, rz.PAYMENT_HEADERS)
+    rz.write_csv(out_dir / "sample_settlements.csv", recon.settlements, rz.SETTLEMENT_HEADERS)
+    rz.write_csv(out_dir / "sample_refunds.csv", recon.refunds, rz.REFUND_HEADERS)
+
+    if args.ledger:
+        shutil.copyfile(args.ledger, out_dir / "sample_ledger.csv")
+    else:
+        # An empty ledger is honest: the third leg simply was not supplied.
+        rz.write_csv(
+            out_dir / "sample_ledger.csv",
+            [],
+            ["ledger_entry_id", "order_id", "debit", "credit", "posted_at", "description"],
+        )
+
+    _print_table(
+        "Converted",
+        [
+            ("payments", str(len(payments))),
+            ("settlements", str(len(recon.settlements))),
+            ("refunds", str(len(recon.refunds))),
+            ("unmapped rows", str(len(recon.unmapped))),
+        ],
+    )
+
+    if recon.unmapped:
+        print(
+            "\n  Rows this adapter does not understand were NOT written."
+            " They move money, so the batch will not balance until they"
+            " are handled:"
+        )
+        from collections import Counter
+
+        for kind, n in Counter(
+            (r.get("type") or r.get("entity_type") or "?") for r in recon.unmapped
+        ).most_common():
+            print(f"    {kind}: {n}")
+        print("\n  Reconciling this batch is not safe yet.")
+        return 2
+
+    print(f"\nwrote {out_dir}/  — reconcile it with --data-dir {out_dir}")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="settlesense")
     sub = parser.add_subparsers(dest="command", required=True)
@@ -87,7 +142,24 @@ def main(argv: list[str] | None = None) -> int:
         help="explicitly disable the AI sidecar (the failure-demo path)",
     )
 
+    conv = sub.add_parser(
+        "convert", help="turn Razorpay exports into a canonical batch"
+    )
+    conv.add_argument("--recon", required=True, help="settlement recon export")
+    conv.add_argument("--payments", required=True, help="payments export")
+    conv.add_argument("--ledger", help="your accounting export (copied as-is)")
+    conv.add_argument("--out", default="data/real", help="directory to write")
+    conv.add_argument(
+        "--unit",
+        required=True,
+        choices=["paise", "rupees"],
+        help="API dumps are paise; dashboard CSVs are rupees. Guessing is a 100x error.",
+    )
+
     args = parser.parse_args(argv)
+    if args.command == "convert":
+        return _convert(args)
+
     data_dir = Path(args.data_dir)
     config = load_config(args.config)
 

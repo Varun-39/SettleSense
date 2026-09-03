@@ -112,6 +112,7 @@ def validate_settlement(
             "settlement_id": _required_id(r, "settlement_id"),
             "payment_id": _optional_id(r, "payment_id"),
             "order_id": _optional_id(r, "order_id"),
+            "settlement_batch_id": _optional_id(r, "settlement_batch_id"),
             "gross_amount": _amount(r, "gross_amount"),
             "fee": _amount(r, "fee"),
             "tax": _amount(r, "tax"),

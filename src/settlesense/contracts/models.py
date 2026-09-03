@@ -51,6 +51,10 @@ class Settlement(Frozen):
     # fallback) is unimplementable without it. Files that omit the column
     # still parse — the field is nullable and R2 simply never fires.
     order_id: str | None
+    # The payout batch this row belongs to. A provider's settlement id names
+    # the batch, not the line, so it is carried separately from the row's own
+    # identity — several settlement rows legitimately share one.
+    settlement_batch_id: str | None = None
     gross_amount: Paise
     fee: Paise
     tax: Paise
