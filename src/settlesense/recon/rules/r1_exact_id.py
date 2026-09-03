@@ -43,7 +43,12 @@ def r1_exact_id(payment: Payment, ctx: MatchContext) -> list[Candidate]:
                 tier=1,
                 score=0.5,
                 payment_id=payment.payment_id,
-                settlement_ids=(settlement.settlement_id,),
+                # Claims nothing: no money moved, so there is nothing to take.
+                # Listing the row here would have the result hold a claim on
+                # cash it reports as unsettled — and on a row with a negative
+                # net, claim a negative amount. The settlement is still cited
+                # as evidence below, which is where it belongs.
+                settlement_ids=(),
                 match_type=MatchType.EXACT_ID,
                 expected_net=expected,
                 actual_net=Paise(0),

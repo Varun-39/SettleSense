@@ -188,7 +188,12 @@ def _result(
             status=status,
             reason_code=reason,
             settled_amount=Paise(0),
-            pending_amount=candidate.expected_net,
+            # The whole collection is outstanding, not the figure net of
+            # fees. No settlement was claimed, so no fee was actually
+            # deducted — netting them off here would report money as gone
+            # that nobody took, and leave the run unable to balance.
+            # This matches the no-candidate branch above.
+            pending_amount=payment.amount,
             settlements=(),
             trace=candidate.trace,
             evidence=candidate.evidence + extra_evidence,
@@ -235,6 +240,25 @@ def resolve(
     if conflicted:
         candidates = [c for c in candidates if c.payment_id not in conflicted]
 
+    # `settlement_id` is not unique either. A provider's id can name a whole
+    # payout batch, so two rows sharing one are conflicting records rather
+    # than two settlements — and a rule collecting both would hand the
+    # resolver the same row twice, which the claim ledger rejects outright.
+    rows_by_settlement: dict[str, list] = {}
+    for s in ctx.settlements:
+        rows_by_settlement.setdefault(s.settlement_id, []).append(s)
+    contested_settlements = {
+        sid for sid, rows in rows_by_settlement.items() if len(rows) > 1
+    }
+
+    blocked: set[str] = set()
+    if contested_settlements:
+        def touches_contested(candidate: Candidate) -> bool:
+            return any(sid in contested_settlements for sid in candidate.settlement_ids)
+
+        blocked = {c.payment_id for c in candidates if touches_contested(c)}
+        candidates = [c for c in candidates if not touches_contested(c)]
+
     ambiguity = detect_ambiguity(candidates, epsilon)
 
     by_payment: dict[str, list[Candidate]] = {}
@@ -278,7 +302,17 @@ def resolve(
             continue  # demoted: its settlements went to stronger evidence
         ledger.claim(candidate.settlement_ids, candidate.payment_id)
 
-        settled_clean = candidate.difference == 0 and candidate.pending_amount == 0
+        # Matching requires having actually taken a settlement. A candidate
+        # that claims nothing can still show a zero difference — a payment
+        # fully refunded against an unsettled settlement nets to zero — and
+        # calling that "matched" reports money as reconciled when none moved.
+        # That is a false match, which is the one outcome this engine exists
+        # to avoid.
+        settled_clean = (
+            bool(candidate.settlement_ids)
+            and candidate.difference == 0
+            and candidate.pending_amount == 0
+        )
         status = ResultStatus.MATCHED if settled_clean else ResultStatus.REVIEW
         reason = candidate.reason_hint if not settled_clean else None
 
@@ -312,12 +346,14 @@ def resolve(
     for payment in payments:
         if payment.row_hash in results:
             continue
-        had_candidates = bool(by_payment.get(payment.payment_id))
-        reason = (
-            ReasonCode.INSUFFICIENT_EVIDENCE
-            if had_candidates
-            else ReasonCode.MISSING_SETTLEMENT
-        )
+        if payment.payment_id in blocked:
+            # Its settlement exists but is duplicated in the source, so it
+            # cannot be claimed without deciding which row is real.
+            reason = ReasonCode.DUPLICATE_RECORD
+        elif by_payment.get(payment.payment_id):
+            reason = ReasonCode.INSUFFICIENT_EVIDENCE
+        else:
+            reason = ReasonCode.MISSING_SETTLEMENT
         results[payment.row_hash] = _result(
             run_id, payment, None, ResultStatus.UNRESOLVED, reason
         )

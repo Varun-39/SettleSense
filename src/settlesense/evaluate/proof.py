@@ -33,6 +33,7 @@ class ControlTotalProof:
     fees: Paise
     tax: Paise
     refunds: Paise
+    #: Signed: money still owed, less any surplus received. See `prove`.
     unexplained: Paise
 
     @property
@@ -102,8 +103,18 @@ def prove(output: RunOutput) -> ControlTotalProof:
             refunds += refunds_by_payment.get(result.payment_id, 0)
 
         if result.status is not ResultStatus.MATCHED:
-            unexplained += abs(int(result.difference_amount)) + int(
-                result.pending_amount
+            # Signed, not absolute. `difference` is actual minus expected, so
+            # a settlement that paid MORE than expected is a surplus that
+            # reduces what is unaccounted for — the money did arrive. Using
+            # the magnitude here made a surplus look like a second outflow and
+            # broke the identity by twice the surplus.
+            #
+            # This is deliberately not the same quantity as the "unexplained"
+            # figure a reviewer sees on the totals screen, which is the
+            # magnitude of trouble and stays absolute. They coincide whenever
+            # nothing is over-settled, which is the normal case.
+            unexplained += int(result.pending_amount) - int(
+                result.difference_amount
             )
 
     return ControlTotalProof(
