@@ -9,6 +9,10 @@ description = "Settlement Reconciliation Controller — evidence-first payment/s
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115",
+    # FastAPI needs this for UploadFile/Form. Without it the API cannot even
+    # import, and a machine that happens to have it as a transitive dependency
+    # of something else will never notice it is missing.
+    "python-multipart>=0.0.18",
     "uvicorn[standard]>=0.30",
     "pydantic>=2.7",
     "pyyaml>=6.0",

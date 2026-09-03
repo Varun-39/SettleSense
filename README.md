@@ -67,6 +67,13 @@ Run the test suite:
 pytest -q
 ```
 
+Verify from a clean clone before shipping — an undeclared dependency is
+invisible on a machine that already has it:
+
+```bash
+git clone <url> /tmp/check && cd /tmp/check && python -m venv .venv && .venv/bin/pip install -e ".[dev]" && .venv/bin/pytest -q
+```
+
 Run the dashboard (needs the API running):
 
 ```bash
