@@ -14,6 +14,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import StreamingResponse
 
+from settlesense.api import fixtures
 from settlesense.api.deps import Settings, get_repository, get_settings
 from settlesense.api.schemas import (
     ExceptionGroup,
@@ -85,8 +86,8 @@ async def create_run(
     settings: Settings = Depends(get_settings),
     repo: Repository = Depends(get_repository),
 ) -> RunCreated:
-    """Reconcile a batch: either four uploaded CSVs, or a named fixture
-    directory already on disk (used by the demo and the failure fixtures)."""
+    """Reconcile a batch: four uploaded CSVs, or a fixture named in the
+    registry. `fixture` is a name, never a path — see api/fixtures.py."""
     uploads = [payments, settlements, refunds, ledger]
 
     if all(u is not None for u in uploads):
@@ -105,13 +106,19 @@ async def create_run(
             "or none with a `fixture` name",
         )
 
-    data_dir = settings.data_dir if not fixture else Path(fixture)
-    if not data_dir.is_dir():
-        raise HTTPException(404, f"fixture directory not found: {data_dir}")
-    missing = [n for n in FILE_NAMES if not (data_dir / n).exists()]
+    if not fixture:
+        return _execute_run(settings.data_dir, settings, repo)
+
+    known = fixtures.get(fixture)
+    if known is None:
+        raise HTTPException(404, f"unknown fixture: {fixture!r}")
+    if not known.exists():
+        raise HTTPException(404, f"fixture {fixture!r} is not installed")
+    missing = [n for n in FILE_NAMES if not (known.path / n).exists()]
     if missing:
         raise HTTPException(400, f"fixture is missing: {', '.join(missing)}")
-    return _execute_run(data_dir, settings, repo)
+    return _execute_run(known.path, settings, repo)
+
 
 
 @router.get("")

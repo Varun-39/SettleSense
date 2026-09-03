@@ -1,0 +1,4 @@
+payment_id,expected_category,expected_status,expected_settlement_ids
+pay_3000,ambiguous_match,review,
+pay_3001,ambiguous_match,review,
+pay_3002,fee_difference,matched,setl_3002

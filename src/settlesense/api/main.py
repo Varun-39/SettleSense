@@ -12,6 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from settlesense import __version__
 from settlesense.ai.client import AIClient
+from settlesense.api import fixtures
 from settlesense.api.deps import get_settings
 from settlesense.api.routes import ai as ai_routes, results, runs
 from settlesense.recon.engine import ENGINE_VERSION, RULES_VERSION
@@ -40,6 +41,12 @@ app.add_middleware(
 app.include_router(runs.router)
 app.include_router(results.router)
 app.include_router(ai_routes.router)
+
+
+@app.get("/fixtures", tags=["meta"])
+def list_fixtures() -> list[dict]:
+    """Batches a client may reconcile by name. Names, never paths."""
+    return fixtures.listing()
 
 
 @app.get("/health", tags=["meta"])

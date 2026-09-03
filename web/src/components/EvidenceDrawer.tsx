@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { api, useAsync, type ResultDetail } from "../lib/api";
 import { ACTION_LABELS, amount, reason } from "../lib/format";
 import { Tick, tickFor } from "./Tick";
+import { SignOff, type Recorded } from "./SignOff";
 
 /**
  * The evidence drawer — a cross-referenced sub-schedule, indexed B-3/1.
@@ -43,7 +44,7 @@ export function EvidenceDrawer({
         ) : error || !data ? (
           <p className="px-6 py-8 text-[13px] text-audit">{error}</p>
         ) : (
-          <Body data={data} onClose={onClose} />
+          <Body data={data} onClose={onClose} runId={runId} />
         )}
       </aside>
     </div>
@@ -61,9 +62,24 @@ function orderedInputs(step: { expression: string; inputs: Record<string, number
   });
 }
 
-function Body({ data, onClose }: { data: ResultDetail; onClose: () => void }) {
+function Body({
+  data,
+  onClose,
+  runId,
+}: {
+  data: ResultDetail;
+  onClose: () => void;
+  runId: string;
+}) {
   const { result } = data;
   const exception = result.status !== "matched";
+  const [signOffs, setSignOffs] = useState<Recorded[]>(
+    data.review_actions.map((a) => ({
+      actor: a.actor,
+      action: a.action,
+      note: a.note,
+    })),
+  );
 
   return (
     <>
@@ -201,6 +217,13 @@ function Body({ data, onClose }: { data: ResultDetail; onClose: () => void }) {
           </p>
         </section>
       ) : null}
+
+      <SignOff
+        runId={runId}
+        reconciliationId={result.reconciliation_id}
+        existing={signOffs}
+        onRecorded={(entry) => setSignOffs((prev) => [...prev, entry])}
+      />
     </>
   );
 }

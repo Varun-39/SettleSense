@@ -44,6 +44,14 @@ export function Results({ runId }: { runId: string }) {
             ? "Reading…"
             : `${visible.length} of ${rows.length} rows${tick ? " · filtered" : ""}`
         }
+        actions={
+          <a
+            href={api.exportUrl(runId)}
+            className="text-[12px] text-trace underline underline-offset-2"
+          >
+            Export CSV
+          </a>
+        }
       >
         <TickLegend active={tick} counts={counts} onToggle={setTick} />
 

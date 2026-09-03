@@ -158,6 +158,32 @@ def _result(
             evidence=(payment_ref(payment),) + extra_evidence,
         )
 
+    if not claims:
+        # A candidate that never claimed its settlements did not move money.
+        # Copying its settled_amount would report cash that was never taken:
+        # two payments contesting one settlement would each report it as
+        # settled, and the run's settled total would exceed the settlements
+        # that exist. The evidence and the trace are still worth showing —
+        # they are what the reviewer has to adjudicate — but the figures
+        # revert to "nothing settled, everything pending".
+        return ReconciliationResult(
+            reconciliation_id=f"{run_id}:{payment.payment_id}",
+            run_id=run_id,
+            payment_id=payment.payment_id,
+            match_type=candidate.match_type,
+            match_score=candidate.score,
+            expected_net=candidate.expected_net,
+            actual_net=None,
+            difference_amount=Paise(0),
+            status=status,
+            reason_code=reason,
+            settled_amount=Paise(0),
+            pending_amount=candidate.expected_net,
+            settlements=(),
+            trace=candidate.trace,
+            evidence=candidate.evidence + extra_evidence,
+        )
+
     return ReconciliationResult(
         reconciliation_id=f"{run_id}:{payment.payment_id}",
         run_id=run_id,

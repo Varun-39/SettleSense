@@ -107,6 +107,33 @@ export type Health = {
   ai_unavailable_reason: string | null;
 };
 
+export type FixtureInfo = {
+  name: string;
+  label: string;
+  description: string;
+  available: boolean;
+};
+
+export type ValidationError = {
+  source_file: string;
+  source_line: number;
+  field: string | null;
+  reason: string;
+  raw_row: string;
+};
+
+export type ExplainReport = {
+  explained: number;
+  from_ai: number;
+  from_template: number;
+  from_cache: number;
+  rejected_by_grounding: number;
+  grounding_failures: string[];
+  evidence_coverage: number;
+  ai_available: boolean;
+  unavailable_reason: string | null;
+};
+
 export type LedgerFinding = {
   order_id: string;
   payment_id: string | null;
@@ -126,8 +153,29 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 
 export const api = {
   health: () => request<Health>("/health"),
-  createRun: () =>
-    request<RunCreated>("/runs", { method: "POST", body: new FormData() }),
+  fixtures: () => request<FixtureInfo[]>("/fixtures"),
+
+  /** Reconcile a registered fixture by name. Never a path. */
+  runFixture: (name?: string) => {
+    const body = new FormData();
+    if (name) body.set("fixture", name);
+    return request<RunCreated>("/runs", { method: "POST", body });
+  },
+
+  /** Reconcile four uploaded CSVs. All four are required together. */
+  uploadRun: (files: {
+    payments: File;
+    settlements: File;
+    refunds: File;
+    ledger: File;
+  }) => {
+    const body = new FormData();
+    body.set("payments", files.payments);
+    body.set("settlements", files.settlements);
+    body.set("refunds", files.refunds);
+    body.set("ledger", files.ledger);
+    return request<RunCreated>("/runs", { method: "POST", body });
+  },
   listRuns: () => request<{ run_id: string; batch_id: string }[]>("/runs"),
   summary: (runId: string) => request<Summary>(`/runs/${runId}/summary`),
   metrics: (runId: string) => request<Record<string, number>>(`/runs/${runId}/metrics`),
@@ -146,8 +194,24 @@ export const api = {
     request<ResultDetail>(
       `/runs/${runId}/results/${encodeURIComponent(reconciliationId)}`,
     ),
+  validationErrors: (runId: string) =>
+    request<ValidationError[]>(`/runs/${runId}/validation-errors`),
   explain: (runId: string) =>
-    request<Record<string, unknown>>(`/runs/${runId}/explain`, { method: "POST" }),
+    request<ExplainReport>(`/runs/${runId}/explain`, { method: "POST" }),
+  review: (
+    runId: string,
+    reconciliationId: string,
+    body: { action: string; note?: string; actor?: string },
+  ) =>
+    request<Record<string, unknown>>(
+      `/runs/${runId}/results/${encodeURIComponent(reconciliationId)}/review`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+    ),
+  exportUrl: (runId: string) => `${BASE}/runs/${runId}/export.csv`,
 };
 
 /** Minimal fetch hook. No cache library — the data set is one batch. */
