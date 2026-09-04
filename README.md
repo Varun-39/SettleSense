@@ -84,18 +84,104 @@ npm --prefix web install && npm --prefix web run dev
 
 ## Architecture
 
-```
-ingest → validate → normalize → dedupe → index → rules → resolver → ledger → persist
-                                                                        ↓
-                                                       evaluator (ground truth)
+Two diagrams, because the system has two ideas worth seeing. The first is the
+boundary the whole design turns on; the second is the decision that prevents a
+false match.
+
+### The deterministic core, and the sidecar that cannot reach it
+
+Everything inside the dashed box runs with the network unplugged. The AI layer
+sits outside it, downstream of persisted results, and writes only to its own
+table behind a foreign key — so truncating `explanations` changes no number on
+any screen.
+
+```mermaid
+flowchart TB
+    SRC["4 source files<br/>payments · settlements · refunds · ledger"]
+
+    subgraph CORE["DETERMINISTIC CORE — no HTTP client in its import graph"]
+        direction TB
+        ING["ingest<br/>batch_id = hash of file contents<br/>so a rerun is idempotent"]
+        VAL["validate<br/>a bad row is quarantined with its<br/>file and line; the batch continues"]
+        NRM["normalize + dedupe<br/>integer paise · UTC stored, IST calendar<br/>row_hash = sha256(canonical row)"]
+        RUL["rules R1–R6<br/>pure functions. They propose<br/>candidates and decide nothing"]
+        RES["resolver<br/>the only component that decides.<br/>A settlement row is claimed once"]
+        LDG["ledger cross-check<br/>third leg; never alters a verdict"]
+        ING --> VAL --> NRM --> RUL --> RES --> LDG
+    end
+
+    DB[("SQLite — one file<br/>results · calc_steps · evidence_refs<br/>results are a table, not screen state")]
+
+    EVAL["evaluator<br/>joins ground truth the engine<br/>never reads. False matches: target 0"]
+    PRF["control-total proof<br/>gross = settled + fees + tax<br/>+ refunds + unexplained"]
+    API["FastAPI"]
+    UI["dashboard<br/>5 schedules, evidence drawer"]
+
+    AI["AI sidecar<br/>explain · cluster<br/>4 gates: input, schema,<br/>grounding, failure"]
+    EXP[("explanations<br/>additive. Truncate it and<br/>every figure is unchanged")]
+
+    SRC --> ING
+    LDG --> DB
+    DB --> EVAL
+    DB --> PRF
+    DB --> API --> UI
+    DB -.->|"after results are persisted"| AI
+    AI -.-> EXP
+    EXP -.->|"may be absent"| API
+
+    style CORE stroke-dasharray: 5 5
+    style AI stroke-dasharray: 4 4
+    style EXP stroke-dasharray: 4 4
 ```
 
-The load-bearing idea is **rules propose, the resolver decides**
-(ADR-002). Matching rules
-are pure functions returning `Candidate` objects; one resolver arbitrates between
-them, claiming settlement rows into a ledger where each row can be consumed once.
-When two explanations are equally good, neither wins — the case goes to review
-with both cited.
+### Rules propose, the resolver decides
+
+The defect this prevents is reproducible in thirty seconds: duplicate one CSV
+row so two payments of the same amount compete for one settlement. A
+first-wins cascade awards it to whichever it visits first and reports a match.
+That is a false match — the one metric the project leads with.
+
+```mermaid
+flowchart TB
+    PAY["one payment"]
+
+    subgraph PROPOSE["PROPOSE — pure, unordered, no I/O"]
+        direction LR
+        R1["R1 exact id<br/>tier 1"]
+        R2["R2 order id<br/>tier 2"]
+        R3["R3 amount+time<br/>tier 3"]
+        R4["R4 refund-adj<br/>tier 3"]
+        R5["R5 partial<br/>tier 1"]
+    end
+
+    CAND["candidates<br/>each carries tier, score,<br/>CalcTrace and evidence"]
+
+    SORT["sort by (tier, score)<br/>identifier evidence always<br/>beats inference"]
+    LEDGER{"ClaimLedger<br/>is every settlement<br/>still unclaimed?"}
+    TIE{"two candidates<br/>equally good?"}
+    RESID{"residual = 0<br/>and a row was<br/>actually claimed?"}
+
+    M["matched"]
+    RV1["review<br/>ambiguous_candidates<br/>both cited, neither wins"]
+    RV2["review<br/>with the residual shown"]
+    UN["unresolved<br/>insufficient_evidence"]
+
+    PAY --> R1 & R2 & R3 & R4 & R5 --> CAND --> SORT --> TIE
+    TIE -->|yes| RV1
+    TIE -->|no| LEDGER
+    LEDGER -->|"already taken"| UN
+    LEDGER -->|free| RESID
+    RESID -->|yes| M
+    RESID -->|no| RV2
+
+    style PROPOSE stroke-dasharray: 5 5
+```
+
+Rule order carries no meaning, so a rule added on day two cannot regress day
+one. Ambiguity is a representable outcome rather than a leftover, which is what
+makes the exception queue a designed output.
+
+The rules themselves (ADR-002):
 
 | Rule | Evidence tier | Fires when |
 |---|---|---|
