@@ -67,6 +67,24 @@ Run the test suite:
 pytest -q
 ```
 
+### Deploying
+
+One service: the API serves the built dashboard from the same origin, so there
+is no second deployment and no cross-origin request.
+
+```bash
+docker build -t settlesense . && docker run -p 8000:8000 settlesense
+```
+
+`render.yaml` is a Render blueprint for the same image. Point a Blueprint at
+the repository and it reads the settings from there.
+
+Two things to know about a free instance: the filesystem is wiped on restart,
+which the app survives because the schema is created on first connection and
+the dashboard reconciles the benchmark on load — but sign-offs and run history
+do not survive it. And it sleeps after about fifteen minutes of inactivity and
+takes roughly a minute to wake, so open the URL before demonstrating it.
+
 Verify from a clean clone before shipping — an undeclared dependency is
 invisible on a machine that already has it:
 

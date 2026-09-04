@@ -7,7 +7,10 @@
  */
 import { useCallback, useEffect, useState } from "react";
 
-const BASE = import.meta.env.VITE_API_BASE ?? "http://127.0.0.1:8000";
+// Same origin once built, because the API serves the bundle. Only the dev
+// server needs an absolute URL, since Vite and uvicorn run on separate ports.
+const BASE =
+  import.meta.env.VITE_API_BASE ?? (import.meta.env.DEV ? "http://127.0.0.1:8000" : "");
 
 export type Money = { paise: number | null; display: string | null };
 

@@ -7,8 +7,11 @@ performs no matching and no money arithmetic of its own.
 """
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from settlesense import __version__
 from settlesense.ai.client import AIClient
@@ -62,3 +65,11 @@ def health() -> dict:
         "ai_enabled": client.available(),
         "ai_unavailable_reason": client.unavailable_reason(),
     }
+
+
+# Serve the built dashboard from the same origin when it is present. A
+# deployment is then one service with no cross-origin requests at all; in
+# development the file simply does not exist and Vite serves the UI instead.
+_DIST = Path(__file__).resolve().parents[3] / "web" / "dist"
+if _DIST.is_dir():
+    app.mount("/", StaticFiles(directory=_DIST, html=True), name="dashboard")

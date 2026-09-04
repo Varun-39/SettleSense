@@ -1,0 +1,36 @@
+# Render blueprint. One service: the API serves the dashboard from the same
+# origin, so there is nothing to keep in step and no cross-origin request.
+#
+# Render reads this automatically when you point a Blueprint at the repo, so
+# the settings below are the deployment rather than a thing to retype into a
+# form.
+services:
+  - type: web
+    name: settlesense
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    region: singapore
+    healthCheckPath: /health
+
+    envVars:
+      # Where SQLite lives. On the free plan the container filesystem is
+      # wiped when the service restarts, which the app survives: the schema
+      # is created on first connection and the dashboard reconciles the
+      # benchmark on load, so a cold instance repopulates itself. Sign-offs
+      # and run history do not survive a restart.
+      #
+      # To keep them, move to a paid instance, add a disk mounted at /data,
+      # and set this to /data/settlesense.db.
+      - key: SETTLESENSE_DB
+        value: /app/settlesense.db
+
+      # Explanations come from deterministic templates unless a key is set.
+      # Add GEMINI_API_KEY in the Render dashboard rather than here — this
+      # file is in the repository.
+      - key: SETTLESENSE_CONFIG
+        value: recon.config.yaml
+
+# A free instance sleeps after about fifteen minutes of inactivity and takes
+# roughly a minute to wake. Open the URL a few minutes before demonstrating
+# it, or use a paid instance if a cold start would be awkward.
