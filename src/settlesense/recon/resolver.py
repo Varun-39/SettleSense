@@ -268,6 +268,12 @@ def resolve(
     # Keyed by row_hash: unique even when payment_id is not.
     results: dict[str, ReconciliationResult] = {}
 
+    # Built once. Looking a payment up by scanning the list inside the
+    # candidate loop made resolution O(payments x candidates).
+    # Conflicted ids are excluded from candidates above, so first-wins here
+    # is never reached for a duplicated id.
+    payment_by_id = {p.payment_id: p for p in reversed(payments)}
+
     # Ambiguous payments never claim: neither explanation gets to win.
     for payment in payments:
         if payment.payment_id in ambiguity.payment_ids:
@@ -295,7 +301,7 @@ def resolve(
         (c for c in candidates if c.payment_id not in ambiguity.payment_ids), key=_rank
     )
     for candidate in ordered:
-        payment = next(p for p in payments if p.payment_id == candidate.payment_id)
+        payment = payment_by_id[candidate.payment_id]
         if payment.row_hash in results:
             continue  # this payment already resolved
         if not ledger.can_claim(candidate.settlement_ids):

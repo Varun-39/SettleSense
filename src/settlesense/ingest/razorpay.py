@@ -57,7 +57,6 @@ class Conversion:
     settlements: list[dict] = field(default_factory=list)
     refunds: list[dict] = field(default_factory=list)
     unmapped: list[dict] = field(default_factory=list)
-    type_counts: Counter = field(default_factory=Counter)
 
     def report(self) -> str:
         lines = [
@@ -113,7 +112,6 @@ def convert_recon(rows: Iterable[dict], unit: AmountUnit) -> Conversion:
 
     for row in rows:
         kind = (_get(row, "type") or "").lower()
-        out.type_counts[kind or "?"] += 1
 
         if kind in SETTLEMENT_TYPES:
             out.settlements.append(

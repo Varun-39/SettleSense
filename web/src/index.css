@@ -20,7 +20,6 @@
   --color-rule: #c9d0c8;
   --color-rule-soft: #dde2db;
   --color-audit: #a8322a; /* iron-oxide red: exceptions only */
-  --color-audit-wash: #f7ecea;
   --color-trace: #31597f; /* interactive affordances only */
   --color-scrim: rgb(21 28 36 / 0.28);
 
@@ -44,7 +43,6 @@
   --color-rule: #333b36;
   --color-rule-soft: #272d29;
   --color-audit: #e2695c;
-  --color-audit-wash: #2a1c1a;
   --color-trace: #86adda;
   --color-scrim: rgb(0 0 0 / 0.55);
 }

@@ -1,8 +1,11 @@
 """Persistence. Thin and explicit — no ORM; the query set is small and worth
 reading (ADR-003).
 
-Runs are append-only and idempotent on batch_id: re-ingesting the same four
-files returns the existing run rather than double-counting it.
+Results are never edited in place — a rerun writes a fresh set rather than
+patching the previous one, which is what makes two runs comparable. The `runs`
+row itself is replaced on a rerun of the same batch, because run_id is derived
+from batch content and re-ingesting the same four files must not create a
+second run.
 """
 from __future__ import annotations
 
@@ -411,12 +414,23 @@ class Repository:
         note: str | None,
     ) -> int:
         """Sign off a group in one transaction. Eighteen payments waiting on
-        the same provider batch is one decision, not eighteen."""
+        the same provider batch is one decision, not eighteen.
+
+        Ids are checked against the results actually named, rather than by
+        loading every id ever written — that set grows with run history and
+        has nothing to do with the size of the request.
+        """
+        if not reconciliation_ids:
+            return 0
+
         now = datetime.now(timezone.utc).isoformat()
+        placeholders = ",".join("?" * len(reconciliation_ids))
         known = {
             row["reconciliation_id"]
             for row in self._conn.execute(
-                "SELECT reconciliation_id FROM reconciliation_results"
+                "SELECT reconciliation_id FROM reconciliation_results "
+                f"WHERE reconciliation_id IN ({placeholders})",
+                reconciliation_ids,
             ).fetchall()
         }
         rows = [

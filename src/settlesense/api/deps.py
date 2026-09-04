@@ -23,6 +23,14 @@ settings = Settings()
 
 
 def get_settings() -> Settings:
+    """The process-wide settings.
+
+    Deliberately a single mutable object: one process serves one database, and
+    the FastAPI dependency has to reach it without threading configuration
+    through every route. Tests reassign its fields, so a test that changes
+    them must set every field it depends on rather than inheriting whatever
+    the previous module left behind.
+    """
     return settings
 
 

@@ -20,9 +20,10 @@ that would otherwise have to catch each case separately.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from settlesense.contracts.enums import ResultStatus
-from settlesense.contracts.money import Paise, format_inr
+from settlesense.contracts.money import Paise
 from settlesense.recon.engine import RunOutput
 
 
@@ -55,18 +56,6 @@ class ControlTotalProof:
     def balances(self) -> bool:
         return self.difference == 0
 
-    def rows(self) -> list[tuple[str, str, bool]]:
-        """(label, amount, is_total) for rendering."""
-        return [
-            ("Gross collections", format_inr(self.gross), True),
-            ("Settled cash", format_inr(self.settled), False),
-            ("Provider fees", format_inr(self.fees), False),
-            ("Tax on fees", format_inr(self.tax), False),
-            ("Refunds", format_inr(self.refunds), False),
-            ("Unexplained", format_inr(self.unexplained), False),
-            ("Accounted for", format_inr(self.accounted), True),
-            ("Difference", format_inr(self.difference), True),
-        ]
 
 
 def prove(output: RunOutput) -> ControlTotalProof:
@@ -76,7 +65,26 @@ def prove(output: RunOutput) -> ControlTotalProof:
     A fee on a settlement nobody claimed never left the merchant's money, so
     counting it would be inventing an outflow.
     """
-    settlements = {s.settlement_id: s for s in output.settlements}
+    # A settlement id is not unique in a source file, so this mapping can
+    # only be safe because the resolver refuses to claim a contested row.
+    # Assert the link rather than depend on it silently: if that ever changes,
+    # this fails here instead of quietly attributing the wrong fee.
+    settlements: dict[str, Any] = {}
+    contested: set[str] = set()
+    for s in output.settlements:
+        if s.settlement_id in settlements:
+            contested.add(s.settlement_id)
+        settlements[s.settlement_id] = s
+
+    if contested:
+        claimed = {
+            c.settlement_id for r in output.results for c in r.settlements
+        }
+        overlap = claimed & contested
+        assert not overlap, (
+            f"a contested settlement was claimed: {sorted(overlap)}. Its fee "
+            "and tax cannot be attributed to one payment."
+        )
     refunds_by_payment: dict[str, int] = {}
     for refund in output.refunds:
         if refund.status == "processed":

@@ -132,5 +132,12 @@ CREATE TABLE IF NOT EXISTS explanation_cache (
 );
 
 CREATE INDEX IF NOT EXISTS idx_results_run ON reconciliation_results(run_id);
+-- The results table reads review state and the payment capture time for every
+-- row it shows. Without these two the subqueries scan, and the cost grows with
+-- results x history rather than with the page being displayed.
+CREATE INDEX IF NOT EXISTS idx_review_actions_recon
+    ON review_actions(reconciliation_id);
+CREATE INDEX IF NOT EXISTS idx_source_rows_lookup
+    ON source_rows(run_id, table_name, natural_id);
 CREATE INDEX IF NOT EXISTS idx_results_status ON reconciliation_results(run_id, status);
 CREATE INDEX IF NOT EXISTS idx_evidence_recon ON evidence_refs(reconciliation_id);
