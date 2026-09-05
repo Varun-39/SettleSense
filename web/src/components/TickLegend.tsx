@@ -16,10 +16,15 @@ export function TickLegend({
   counts: Partial<Record<TickKind, number>>;
   onToggle: (kind: TickKind | null) => void;
 }) {
+  // A tick with no rows is still part of the taxonomy, but a row of "0" chips
+  // reads as unfinished rather than as "this batch had none of those".
+  const present = TICKS.filter(({ kind }) => (counts[kind] ?? 0) > 0);
+  const absent = TICKS.filter(({ kind }) => !(counts[kind] ?? 0));
+
   return (
     <div className="flex flex-wrap items-center gap-x-1 gap-y-1 border-b border-rule px-4 py-2.5">
       <span className="label mr-2 py-1">Tick legend</span>
-      {TICKS.map(({ kind, name, meaning }) => {
+      {present.map(({ kind, name, meaning }) => {
         const count = counts[kind] ?? 0;
         const isActive = active === kind;
         return (
@@ -48,6 +53,15 @@ export function TickLegend({
           </button>
         );
       })}
+      {absent.length > 0 ? (
+        <span
+          className="ml-1 text-[11px] text-ink-faint"
+          title={absent.map((t) => `${t.name}: ${t.meaning}`).join(" · ")}
+        >
+          No {absent.map((t) => t.name.toLowerCase()).join(", ")} rows in this
+          batch
+        </span>
+      ) : null}
     </div>
   );
 }
