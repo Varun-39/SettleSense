@@ -101,7 +101,7 @@ class ExceptionGroup(BaseModel):
 
 
 class ReviewRequest(BaseModel):
-    action: Literal["accept", "reject", "annotate"]
+    action: Literal["accept", "reject", "annotate", "escalate"]
     note: str | None = None
     actor: str = "reviewer"
 

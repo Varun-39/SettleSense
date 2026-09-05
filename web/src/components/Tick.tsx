@@ -99,6 +99,17 @@ const PATHS: Record<TickKind, ReactElement> = {
   ),
 };
 
+/** The rule behind a tick, named for a reader who has not learned the glyphs. */
+export const RULE_NAMES: Record<TickKind, string> = {
+  "traced-id": "R1 · traced by payment id",
+  "traced-ref": "R2 · traced by order reference",
+  agreed: "R3 · agreed on amount and date",
+  refund: "R4 · refund accounted for separately",
+  footed: "R5 · footed across settlement rows",
+  unresolved: "R6 · no candidate survived",
+  ambiguous: "contested · two equal matches, neither taken",
+};
+
 export function Tick({
   kind,
   tone,

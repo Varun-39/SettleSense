@@ -158,3 +158,31 @@ def test_sign_off_never_changes_a_figure(client, run_id) -> None:
     )
 
     assert client.get(f"/runs/{run_id}/summary").json() == before
+
+
+def test_escalate_is_a_recordable_disposition(client, run_id) -> None:
+    """Accept and reject close a case, annotate records a note; nothing said
+    "this is someone else's problem now" until escalate existed."""
+    page = client.get(f"/runs/{run_id}/results", params={"status": "unresolved"}).json()
+    rid = page["results"][0]["reconciliation_id"]
+
+    response = client.post(
+        f"/runs/{run_id}/results/{rid}/review",
+        json={"action": "escalate", "actor": "VB", "note": "provider ticket 4471"},
+    )
+    assert response.status_code == 201
+
+    detail = client.get(f"/runs/{run_id}/results/{rid}").json()
+    assert detail["review_actions"][-1]["action"] == "escalate"
+    # The engine's verdict is untouched, as with every other disposition.
+    assert detail["result"]["status"] == "unresolved"
+
+
+def test_an_unknown_disposition_is_still_refused(client, run_id) -> None:
+    page = client.get(f"/runs/{run_id}/results", params={"limit": 1}).json()
+    rid = page["results"][0]["reconciliation_id"]
+    response = client.post(
+        f"/runs/{run_id}/results/{rid}/review",
+        json={"action": "resolve_everything", "actor": "VB"},
+    )
+    assert response.status_code == 422

@@ -49,11 +49,16 @@ export default function App() {
   const [failure, setFailure] = useState<string | null>(null);
   const [metrics, setMetrics] = useState<Record<string, number> | null>(null);
   const [explained, setExplained] = useState<ExplainReport | null>(null);
+  // The batch is reconciled once on load so the app opens with data. Until the
+  // user asks for a reconcile themselves, "already reconciled" is an answer to
+  // a question nobody posed — and it is the first thing a visitor reads.
+  const [userAsked, setUserAsked] = useState(false);
   const [dark, setDark] = useTheme();
 
   const health = useAsync<Health>(() => api.health(), []);
 
-  async function reconcile(fn: () => Promise<RunCreated>) {
+  async function reconcile(fn: () => Promise<RunCreated>, byUser = true) {
+    setUserAsked(byUser);
     setBusy(true);
     setFailure(null);
     setExplained(null);
@@ -83,7 +88,7 @@ export default function App() {
   }
 
   useEffect(() => {
-    void reconcile(() => api.runFixture());
+    void reconcile(() => api.runFixture(), false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -187,7 +192,7 @@ export default function App() {
           ) : null}
 
           {/* The duplicate-batch case, stated rather than silently handled. */}
-          {run?.already_existed && schedule !== "0" ? (
+          {run?.already_existed && userAsked && schedule !== "0" ? (
             <div className="sheet mb-4 px-6 py-3">
               <p className="text-[13px] text-ink">
                 These four files were already reconciled. Showing the existing run
@@ -198,27 +203,43 @@ export default function App() {
 
           {explained && schedule !== "0" ? (
             <div className="sheet mb-4 px-6 py-3">
-              <p className="text-[13px] text-ink">
-                Explained {explained.explained} exceptions ·{" "}
-                <span className="fig">{explained.from_ai}</span> from the model,{" "}
-                <span className="fig">{explained.from_template}</span> from
-                templates
-                {explained.rejected_by_grounding > 0 ? (
-                  <>
-                    {" "}
-                    ·{" "}
-                    <span className="fig text-audit">
-                      {explained.rejected_by_grounding}
-                    </span>{" "}
-                    rejected by the grounding gate
-                  </>
-                ) : null}
+              <p className="label mb-1">
+                Explanation mode ·{" "}
+                {explained.ai_available ? "model, grounded" : "deterministic"}
               </p>
-              {!explained.ai_available ? (
-                <p className="mt-1 text-[12px] text-ink-muted">
-                  {explained.unavailable_reason}. Figures are unchanged.
+              {explained.ai_available ? (
+                <p className="text-[13px] text-ink">
+                  Explained {explained.explained} exceptions ·{" "}
+                  <span className="fig">{explained.from_ai}</span> written by the
+                  model and checked against the calculation trace,{" "}
+                  <span className="fig">{explained.from_template}</span> from
+                  templates
+                  {explained.rejected_by_grounding > 0 ? (
+                    <>
+                      {" "}
+                      ·{" "}
+                      <span className="fig text-audit">
+                        {explained.rejected_by_grounding}
+                      </span>{" "}
+                      rejected by the grounding gate for citing a figure that is
+                      not in the evidence
+                    </>
+                  ) : null}
                 </p>
-              ) : null}
+              ) : (
+                <>
+                  <p className="text-[13px] text-ink">
+                    All {explained.explained} exceptions were explained from their
+                    verified calculation traces. No model was called, and no
+                    figure on any screen changed.
+                  </p>
+                  <p className="mt-1 text-[12px] text-ink-muted">
+                    This is the designed fallback, not a failure: an explanation
+                    is never the only record of a conclusion.{" "}
+                    {explained.unavailable_reason}.
+                  </p>
+                </>
+              )}
             </div>
           ) : null}
 

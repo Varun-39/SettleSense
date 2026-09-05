@@ -64,7 +64,7 @@ export function BulkSignOff({
         aria-label="Note applied to every selected case"
         className="min-w-0 flex-1 rounded-[2px] border border-rule bg-paper px-2 py-1 text-[12px] text-ink placeholder:text-ink-faint"
       />
-      {["accept", "reject", "annotate"].map((action) => (
+      {["accept", "reject", "annotate", "escalate"].map((action) => (
         <button
           key={action}
           disabled={busy}

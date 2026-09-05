@@ -66,6 +66,38 @@ function render(name: string, value: number): string {
   return String(Math.round(value));
 }
 
+/**
+ * Amount accuracy sits next to "100% correct verdicts" and reads as a
+ * contradiction until you see the arithmetic. Every verdict can be right while
+ * money stays unexplained — a correctly unresolved payment is still money the
+ * engine cannot account for. Showing the division makes that legible without
+ * anyone having to open the README.
+ */
+function AmountAccuracyNote({ metrics }: { metrics: Record<string, number> }) {
+  const gross = metrics.gross_payments_paise ?? metrics.proof_gross;
+  const unexplained = metrics.unexplained_paise ?? metrics.proof_unexplained;
+  if (gross === undefined || unexplained === undefined) return null;
+
+  const explained = gross - unexplained;
+  const rupees = (p: number) =>
+    (p / 100).toLocaleString("en-IN", { minimumFractionDigits: 2 });
+
+  return (
+    <div className="border-b border-rule-soft py-2 pl-4">
+      <p className="fig text-[12px] text-ink-muted">
+        {rupees(explained)} explained &divide; {rupees(gross)} collected
+      </p>
+      <p className="mt-1 max-w-lg text-[12px] text-ink-muted">
+        The share of collected money whose settlement, fee and refund treatment
+        is fully accounted for. A correctly unresolved payment still leaves money
+        unexplained, so every verdict can be right while this figure sits well
+        below 100%. Excluding unresolved cases would report about 99% and mean
+        nothing.
+      </p>
+    </div>
+  );
+}
+
 export function Benchmark({ metrics }: { metrics: Record<string, number> | null }) {
   if (!metrics) {
     return (
@@ -85,7 +117,14 @@ export function Benchmark({ metrics }: { metrics: Record<string, number> | null 
     <Sheet
       index="D-1"
       title="Benchmark"
-      meta="Measured against a held-out ground-truth file the engine never reads"
+      meta={
+        <>
+          Controlled synthetic benchmark — 100 records covering nine known
+          reconciliation failure classes, scored against a held-out ground-truth
+          file the engine never reads. Amounts are spaced far wider than the
+          matching tolerance so no rule can succeed by coincidence.
+        </>
+      }
     >
       <div className="px-6 py-6">
         <div className="foot-in">
@@ -112,16 +151,18 @@ export function Benchmark({ metrics }: { metrics: Record<string, number> | null 
           {known
             .filter((k) => k !== "false_matches")
             .map((name) => (
-              <div
-                key={name}
-                className="flex items-baseline justify-between border-b border-rule-soft py-1.5 last:border-b-0"
-              >
-                <dt className="text-[13px] text-ink-muted">
-                  {LABELS[name] ?? name.replace(/_/g, " ")}
-                </dt>
-                <dd className="fig text-[13px] text-ink">
-                  {render(name, metrics[name])}
-                </dd>
+              <div key={name}>
+                <div className="flex items-baseline justify-between border-b border-rule-soft py-1.5">
+                  <dt className="text-[13px] text-ink-muted">
+                    {LABELS[name] ?? name.replace(/_/g, " ")}
+                  </dt>
+                  <dd className="fig text-[13px] text-ink">
+                    {render(name, metrics[name])}
+                  </dd>
+                </div>
+                {name === "amount_accuracy" ? (
+                  <AmountAccuracyNote metrics={metrics} />
+                ) : null}
               </div>
             ))}
         </dl>

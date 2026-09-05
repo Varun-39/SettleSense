@@ -41,7 +41,10 @@ def run_id(client) -> str:
 # -- meta -------------------------------------------------------------------
 
 
-def test_health_reports_engine_and_rules_version(client) -> None:
+def test_health_reports_engine_and_rules_version(client, no_ai_keys) -> None:
+    """`no_ai_keys` because this asserted a False that only held on a machine
+    without a provider key — it passed for months and failed the moment one
+    was set. A test may not depend on the developer's environment."""
     body = client.get("/health").json()
     assert body["status"] == "ok"
     assert body["engine_version"]

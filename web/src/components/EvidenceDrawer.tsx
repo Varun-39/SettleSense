@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api, useAsync, type ResultDetail } from "../lib/api";
 import { ACTION_LABELS, amount, asNote, reason } from "../lib/format";
-import { Tick, tickFor } from "./Tick";
+import { RULE_NAMES, Tick, tickFor } from "./Tick";
 import { SignOff, type Recorded } from "./SignOff";
 
 /**
@@ -124,11 +124,10 @@ function Body({
             </button>
           </div>
         </div>
-        {result.reason_code ? (
-          <p className="mt-1 text-[12px] text-ink-muted">
-            Reason: {reason(result.reason_code)}
-          </p>
-        ) : null}
+        <p className="mt-1 text-[12px] text-ink-muted">
+          {RULE_NAMES[tickFor(result)]}
+          {result.reason_code ? <> · {reason(result.reason_code)}</> : null}
+        </p>
       </header>
 
       <section className="px-6 py-5">

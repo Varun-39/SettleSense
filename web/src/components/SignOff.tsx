@@ -13,6 +13,11 @@ const ACTIONS = [
   { value: "accept", label: "Accept", hint: "Agree with the engine and close" },
   { value: "reject", label: "Reject", hint: "Disagree; the case stays open" },
   { value: "annotate", label: "Annotate", hint: "Record a note only" },
+  {
+    value: "escalate",
+    label: "Escalate",
+    hint: "Hand to someone else; the case stays open",
+  },
 ] as const;
 
 export type Recorded = { actor: string; action: string; note: string | null };
